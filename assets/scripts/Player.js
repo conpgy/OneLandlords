@@ -18,6 +18,7 @@ cc.Class({
         title: null,
         isSelf: false,  // 是否自己
         isDiZhu: false, // 是否地主
+        ID: 0,
 
         cardsManager: {
             default: null,
@@ -95,9 +96,8 @@ cc.Class({
             var card = this.cardsManager.node.getChildren()[i];
             if (card) {
                 var x = 500 + (i - zeroPoint) * 50;
-               card.setPositionX(x);
+                card.setPositionX(x);
             }
-            
         }
     },
 
@@ -236,18 +236,32 @@ cc.Class({
             }
         }
 
+        if (this.ID == 1) {
+            cc.log(this.groupedCards);
+        }
+        
     },
 
     removeCards (cards) {
         if (!cards || cards.lenngth == 0) return;
 
-        for (const key in cards)   {
+        
+
+        for (const key in cards) {
             if (cards.hasOwnProperty(key)) {
-                const element = cards[key];
-                element.node.removeFromParent(true);
-                this.handCards.pop(element);
+                const card = cards[key];
+                card.node.removeFromParent(true);
+
+                for (var i = 0; i < this.handCards.length; i++)   {
+                    var cardInfo = this.handCards[i];
+                    if (cardInfo == card.cardInfo) {
+                        this.handCards.splice(i, 1);
+                        break;
+                    }
+                }
             }
         }
+
         this.appendCardsToOutZone(cards);
         this.updateCards();
     },
@@ -275,6 +289,223 @@ cc.Class({
             cardNode.setPosition(x, y);
         }
         
+    },
+
+    /** 出牌提示
+     * 
+     * isFollow     : 是否是跟牌
+     * cardTypeInfo : 牌型对象
+     * 
+     */
+    showTips (isFollow, cardTypeInfo) {
+        // 取消所有的选牌
+        var count = this.cardsManager.node.getChildrenCount();
+        for (i = 0; i < count; i++) {
+            var card = this.cardsManager.node.getChildren()[i];
+            if (card) {
+                card.getComponent("Card").unselect();
+            }
+        }
+
+        // 查询要出的牌
+        var cardNumbers = isFollow ? this.findFollowCardNumbers() : this.findOutCardNumbers();
+        if (cardNumbers.length == 0) {
+            cc.log("没有牌打过上家");
+        } else {
+            // 选中相应的牌
+            for (const key in cardNumbers) {
+                if (cardNumbers.hasOwnProperty(key)) {
+                    const number = cardNumbers[key];
+                    for (i = 0; i < count; i++) {
+                        var cardNode = this.cardsManager.node.getChildren()[i];
+                        if (cardNode) {
+                            var card = cardNode.getComponent("Card");
+                            if (!card.isSelected && card.cardInfo.number == number) {
+                                card.select();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+
+    /** 找出要跟的牌 */
+    findFollowCardNumbers (followInfo) {
+        var resultNumbers = [];
+
+        for (const key in this.groupedCards) {
+            if (this.groupedCards.hasOwnProperty(key)) {
+                const cardTypeInfo = this.groupedCards[key];
+                
+                if (cardTypeInfo.value <= followInfo.value) {
+                    continue;
+                }
+
+                // 单张/对子/三不带/炸弹/单顺/双顺/飞机/火箭
+                if (cardTypeInfo.type == followInfo.type) {
+                    if (cardTypeInfo.type == CardTypeInfo.CardType.sequence || cardTypeInfo.type == CardTypeInfo.CardType.sequence_pairs
+                        || cardTypeInfo.type == CardTypeInfo.CardType.sequence_triplet) {
+                        if (followInfo.cards.length == cardTypeInfo.cards.length) {
+                            return cardTypeInfo.cards;
+                        }
+                    } else {
+                        return cardTypeInfo.cards;
+                    }
+                } else {
+                    // 上家出的牌为3带1
+                    if (followInfo.type == CardTypeInfo.CardType.triplet_one) {
+                        if (cardTypeInfo.type == CardTypeInfo.CardType.triplet) {
+                            // 加上一张单牌
+                            for (var i = 0; i < this.groupedCards.length; i++) {
+                                if (groupedCards[i].type == CardTypeInfo.CardType.single) {
+                                    return [
+                                        cardTypeInfo.cards[0],
+                                        cardTypeInfo.cards[0],
+                                        cardTypeInfo.cards[0],
+                                        groupedCards[i].cards[0]
+                                    ];
+                                }
+                            }
+                        }
+                    }
+
+                    // 上家出的牌为3带1对
+                    if (followInfo.type == CardTypeInfo.CardType.triplet_two) {
+                        if (cardTypeInfo.type == CardTypeInfo.CardType.triplet) {
+                            // 加上一张单牌
+                            for (var i = 0; i < this.groupedCards.length; i++) {
+                                if (groupedCards[i].type == CardTypeInfo.CardType.pair && cardTypeInfo.cards[0] != groupedCards[i].cards[0]) {
+                                    return [
+                                        cardTypeInfo.cards[0],
+                                        cardTypeInfo.cards[0],
+                                        cardTypeInfo.cards[0],
+                                        groupedCards[i].cards[0],
+                                        groupedCards[i].cards[1],
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 没有找到对应的牌型, 用炸弹
+        for (const key in this.groupedCards) {
+            if (this.groupedCards.hasOwnProperty(key)) {
+                const cardTypeInfo = this.groupedCards[key];
+                if (cardTypeInfo.value == followInfo.value) {
+                    continue;
+                }
+                if (cardTypeInfo.type == CardTypeInfo.CardType.bomb) {
+                    return cardTypeInfo.cards;
+                }
+            }
+        }
+
+        // 炸弹也没有, 使用王炸
+        for (const key in this.groupedCards) {
+            if (this.groupedCards.hasOwnProperty(key)) {
+                const cardTypeInfo = this.groupedCards[key];
+                if (cardTypeInfo.type == CardTypeInfo.CardType.rocket) {
+                    return cardTypeInfo.cards;
+                }
+            }
+        }
+
+        return resultNumbers;
+    },
+
+    /** 找出接下来要出的牌(非跟牌) */
+    findOutCardNumbers () {
+        // 牌组优先级: 双顺 -> 单顺 -> 三带 > 对子 > 单牌 > 炸弹 > 火箭
+
+        var findIndex = -1;
+        var tmpCardCount = 0;
+    
+        // 双顺
+        for (var i = 0; i < this.groupedCards.length; i++) {
+            if (this.groupedCards[i].type == CardTypeInfo.CardType.sequence_pairs && tmpCardCount < this.groupedCards[i].cards.length) {
+                findIndex = i;
+                tmpCardCount = this.groupedCards[i].cards.length;
+            }
+        }
+        if (findIndex != -1) {
+            return this.groupedCards[findIndex].cards;
+        }
+
+        // 单顺
+        for (var i = 0; i < this.groupedCards.length; i++) {
+            if (this.groupedCards[i].type == CardTypeInfo.CardType.sequence && tmpCardCount < this.groupedCards[i].cards.length) {
+                findIndex = i;
+                tmpCardCount = this.groupedCards[i].cards.length;
+            }
+        }
+        if (findIndex != -1) {
+            return this.groupedCards[findIndex].cards;
+        }
+
+        // 3-0/3-1/3-2
+        for (var i = 0; i < this.groupedCards.length; i++) {
+            if (this.groupedCards[i].type == CardTypeInfo.CardType.triplet) {
+                for (var j = 0; j < this.groupedCards.length; j++) {
+                    if(this.groupedCards[j].type == CardTypeInfo.CardType.single) {
+                       return [
+                         this.groupedCards[i].cards[0],
+                         this.groupedCards[i].cards[0],
+                         this.groupedCards[i].cards[0],
+                         this.groupedCards[j].cards[0]
+                       ];
+                    }
+                }
+            }
+
+            return this.groupedCards[i].cards;
+        }
+
+        // 对子
+        for (const key in this.groupedCards) {
+            if (this.groupedCards.hasOwnProperty(key)) {
+                const cardTypeInfo = this.groupedCards[key];
+                if (cardTypeInfo.type == CardTypeInfo.CardType.pair) {
+                    return cardTypeInfo.cards;
+                }
+            }
+        }
+
+        // 单牌
+        for (const key in this.groupedCards) {
+            if (this.groupedCards.hasOwnProperty(key)) {
+                const cardTypeInfo = this.groupedCards[key];
+                if (cardTypeInfo.type == CardTypeInfo.CardType.single) {
+                    return cardTypeInfo.cards;
+                }
+            }
+        }
+
+        // 炸弹
+        for (const key in this.groupedCards) {
+            if (this.groupedCards.hasOwnProperty(key)) {
+                const cardTypeInfo = this.groupedCards[key];
+                if (cardTypeInfo.type == CardTypeInfo.CardType.bomb) {
+                    return cardTypeInfo.cards;
+                }
+            }
+        }
+
+        // 火箭
+        for (const key in this.groupedCards) {
+            if (this.groupedCards.hasOwnProperty(key)) {
+                const cardTypeInfo = this.groupedCards[key];
+                if (cardTypeInfo.type == CardTypeInfo.CardType.rocket) {
+                    return cardTypeInfo.cards;
+                }
+            }
+        }
+
+        return [];
     },
 
 });

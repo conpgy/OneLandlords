@@ -119,16 +119,24 @@ cc.Class({
     },
 
     click () {
+        this.isSelected ? this.unselect() : this.select();
+    },
 
-        let offset = 25;
-        if (this.isSelected) {
-            this.node.setPositionY(this.node.getPositionY() - offset);
-            this.game.removeSelectCard(this);
-        } else {
+    select () {
+        if (!this.isSelected) {
+            let offset = 25;
             this.node.setPositionY(this.node.getPositionY() + offset);
             this.game.appendSelectCard(this);
         }
+        this.isSelected = true;
+    },
 
-        this.isSelected = !this.isSelected;
+    unselect () {
+        if (this.isSelected) {
+            let offset = 25;
+            this.node.setPositionY(this.node.getPositionY() - offset);
+            this.game.removeSelectCard(this);
+        }
+        this.isSelected = false;
     },
 });

@@ -11,6 +11,7 @@
 var GLOBAL = require("global");
 var CardInfo = require("CardInfo");
 var Card = require("Card");
+var PokeUtil = require("PokeUtil");
 
 cc.Class({
     extends: cc.Component,
@@ -134,7 +135,24 @@ cc.Class({
     },
 
     tipsEvent() {
+        // 获取上家出的牌型
+        var player3OutCards = this.player3.outCards;
+        var player3CardTypeInfo = PokeUtil.analysisCardInfos(player3OutCards);
 
+        if (player3OutCards.length == 0) {
+            // 上家没有出牌。获取上上家出的牌
+            var player2OutCards = this.player2.outCards;
+            var player2CardTypeInfo = PokeUtil.analysisCardInfos(player2OutCards);
+
+            if (player2OutCards.length == 0) {
+                this.player1.showTips(false, player2CardTypeInfo);
+            } else {
+                this.player1.showTips(true, player2CardTypeInfo);
+            }
+
+        } else {
+            this.player1.showTips(true, player3CardTypeInfo);
+        }
     },
 
 
@@ -205,6 +223,7 @@ cc.Class({
     /** 初始化玩家信息 */
     initPlayers() {
         this.player1 = this.buildPlayerComponent();
+        this.player1.ID = 1;
         this.player1.title = "Player1";
         this.player1.nameLabel.string = GLOBAL.playerInfo1.name;
         this.player1.scoreLabel.string = GLOBAL.playerInfo1.score;
@@ -213,6 +232,7 @@ cc.Class({
         this.node.addChild(this.player1.node);
 
         this.player2 = this.buildPlayerComponent();
+        this.player2.ID = 2;
         this.player2.title = "Player2";
         this.player2.nameLabel.string = GLOBAL.playerInfo2.name;
         this.player2.scoreLabel.string = GLOBAL.playerInfo2.score;
@@ -221,6 +241,7 @@ cc.Class({
         this.node.addChild(this.player2.node);
 
         this.player3 = this.buildPlayerComponent();
+        this.player3.ID = 3;
         this.player3.title = "Player3";
         this.player3.nameLabel.string = GLOBAL.playerInfo3.name;
         this.player3.scoreLabel.string = GLOBAL.playerInfo3.score;
@@ -284,7 +305,10 @@ cc.Class({
     },
 
     removeSelectCard(card) {
-        this.selectedCards.pop(card);
+        var index = this.selectedCards.indexOf(card);
+        if (index != -1) {
+            this.selectedCards.splice(index, 1);
+        }
         if (this.selectedCards.length == 0) {
             this.discardButton.getComponent(cc.Button).interactable = false;
         }

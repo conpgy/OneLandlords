@@ -31,7 +31,10 @@ var CardTypeInfo = cc.Class({
     extends: cc.Component,
     properties: {
         cards: [cc.Integer],
-        type: CardType.error,
+        type: {
+            default: CardType.error,
+            type: CardType
+        },
         value: 0,
     },
 
