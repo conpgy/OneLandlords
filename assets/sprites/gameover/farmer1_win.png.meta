@@ -1,0 +1,30 @@
+{
+  "ver": "1.0.0",
+  "uuid": "c731f22b-621b-4e6c-b031-3c9d9f02f126",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "subMetas": {
+    "farmer1_win": {
+      "ver": "1.0.3",
+      "uuid": "79b51c8d-2519-454a-a5c6-8a18969c8721",
+      "rawTextureUuid": "c731f22b-621b-4e6c-b031-3c9d9f02f126",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 0,
+      "trimY": 0,
+      "width": 321,
+      "height": 391,
+      "rawWidth": 321,
+      "rawHeight": 391,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "ver": "1.0.0",
+  "uuid": "2c0bc1c7-9160-464c-8d4f-50323d25c350",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "subMetas": {
+    "ddz_diploma_lose_big_bg": {
+      "ver": "1.0.3",
+      "uuid": "c3d37d63-cbc1-48b5-b515-1bfb8bd8203f",
+      "rawTextureUuid": "2c0bc1c7-9160-464c-8d4f-50323d25c350",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 0,
+      "trimY": 0,
+      "width": 909,
+      "height": 512,
+      "rawWidth": 909,
+      "rawHeight": 512,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}
