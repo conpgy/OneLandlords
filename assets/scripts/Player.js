@@ -10,6 +10,8 @@
 
 var CardInfo = require("CardInfo");
 var CardTypeInfo = require("CardTypeInfo");
+var PokeUtil = require("PokeUtil");
+var Game = require("game");
 
 cc.Class({
     extends: cc.Component,
@@ -50,6 +52,11 @@ cc.Class({
             type: cc.Sprite,
         },
 
+        game: {
+            default: null,
+            type: Game,
+        },
+
         handCards: [CardInfo],
         outCards: [CardInfo],
 
@@ -61,11 +68,13 @@ cc.Class({
 
     // onLoad () {},
 
-    start () {
-
+    getOutCards () {
+        return this.outCards;
     },
 
-    // update (dt) {},
+    clearOutCards() {
+        this.outCards = [];
+    },
 
     deal(game, cardInfo) {
         this.handCards.push(cardInfo);
@@ -87,7 +96,7 @@ cc.Class({
         // 拆牌
         this.chaipai();
 
-        var count = this.cardsManager.node.getChildrenCount();
+        var count = this.handCards.length;
         var zeroPoint = count / 2;
 
         this.pokeCountLabel.string = "" + count;
@@ -242,10 +251,8 @@ cc.Class({
         
     },
 
-    removeCards (cards) {
+    discards (cards) {
         if (!cards || cards.lenngth == 0) return;
-
-        
 
         for (const key in cards) {
             if (cards.hasOwnProperty(key)) {
@@ -264,10 +271,55 @@ cc.Class({
 
         this.appendCardsToOutZone(cards);
         this.updateCards();
+
+        if(this.handCards.length == 0) {
+            this.game.gameOver(this);
+        }
+    },
+
+    discardWithNumbers(numbers) {
+
+        var cards = [];
+        for (const key in numbers) {
+            if (numbers.hasOwnProperty(key)) {
+                const number = numbers[key];
+
+                for (var i = 0; i < this.handCards.length; i++)   {
+                    var cardInfo = this.handCards[i];
+                    if (cardInfo.number == number) {
+                        this.handCards.splice(i, 1);
+                        this.outCards.push(cardInfo);
+
+                        // 生成扑克牌节点
+                        var card = cc.instantiate(this.cardPrefab);
+                        card.getComponent('Card').cardInfo = cardInfo;
+                        card.getComponent('Card').game = this.game;
+                        card.name = cardInfo.name;
+                        this.outCardZone.node.addChild(card, 100 - cardInfo.number);
+
+                        var x = 500 + (i - (numbers.length * 0.5)) * 50;
+                        var y = 150;
+                        card.setScale(0.5, 0.5);
+                        card.setPosition(x, y);
+
+                        break;
+                    }
+                }
+            }
+        }
+        cc.log("player" + this.ID + "出牌: " + numbers);
+
+        this.outCardZone.node.sortAllChildren();
+
+        this.updateCards();
+
+        if(this.handCards.length == 0) {
+            this.game.gameOver(this);
+        }
     },
 
     appendCardsToOutZone(cards) {
-        this.outCardZone.node.removeAllChildren(true);
+        this.clearOutZone();
 
         var count = cards.length;
         var zeroPoint = count / 2;
@@ -291,6 +343,10 @@ cc.Class({
         
     },
 
+    clearOutZone() {
+        this.outCardZone.node.removeAllChildren(true);
+    },
+
     /** 出牌提示
      * 
      * isFollow     : 是否是跟牌
@@ -308,7 +364,7 @@ cc.Class({
         }
 
         // 查询要出的牌
-        var cardNumbers = isFollow ? this.findFollowCardNumbers() : this.findOutCardNumbers();
+        var cardNumbers = isFollow ? this.findFollowCardNumbers(cardTypeInfo) : this.findOutCardNumbers();
         if (cardNumbers.length == 0) {
             cc.log("没有牌打过上家");
         } else {
@@ -328,6 +384,36 @@ cc.Class({
                     }
                 }
             }
+        }
+    },
+
+    /** 出牌 */
+    playerDiscard(isFollow, followCardTypeInfo, selectedCards) {
+        this.clearOutCards();
+        this.discards(selectedCards); // 将牌打出去
+
+        //TODO: 音效
+
+        for (const key in selectedCards) {
+            if (selectedCards.hasOwnProperty(key)) {
+                const card = selectedCards[key];
+                this.outCards.push(card.cardInfo);
+            }
+        }
+    },
+
+    robbotDiscard(isFollow, followCardTypeInfo) {
+        this.clearOutCards();
+        var cardNumbers = isFollow ? this.findFollowCardNumbers(followCardTypeInfo) : this.findOutCardNumbers();
+        if (cardNumbers.length == 0) {
+            cc.log("player" + this.ID + ": 要不起");
+        } else {
+
+            this.discardWithNumbers(cardNumbers);
+
+            //TOOD: 音效
+            var cardTypeInfo = PokeUtil.analysisCardNumbers(cardNumbers);
+            
         }
     },
 
@@ -359,12 +445,12 @@ cc.Class({
                         if (cardTypeInfo.type == CardTypeInfo.CardType.triplet) {
                             // 加上一张单牌
                             for (var i = 0; i < this.groupedCards.length; i++) {
-                                if (groupedCards[i].type == CardTypeInfo.CardType.single) {
+                                if (this.groupedCards[i].type == CardTypeInfo.CardType.single) {
                                     return [
                                         cardTypeInfo.cards[0],
                                         cardTypeInfo.cards[0],
                                         cardTypeInfo.cards[0],
-                                        groupedCards[i].cards[0]
+                                        this.groupedCards[i].cards[0]
                                     ];
                                 }
                             }
@@ -376,13 +462,13 @@ cc.Class({
                         if (cardTypeInfo.type == CardTypeInfo.CardType.triplet) {
                             // 加上一张单牌
                             for (var i = 0; i < this.groupedCards.length; i++) {
-                                if (groupedCards[i].type == CardTypeInfo.CardType.pair && cardTypeInfo.cards[0] != groupedCards[i].cards[0]) {
+                                if (this.groupedCards[i].type == CardTypeInfo.CardType.pair && cardTypeInfo.cards[0] != this.groupedCards[i].cards[0]) {
                                     return [
                                         cardTypeInfo.cards[0],
                                         cardTypeInfo.cards[0],
                                         cardTypeInfo.cards[0],
-                                        groupedCards[i].cards[0],
-                                        groupedCards[i].cards[1],
+                                        this.groupedCards[i].cards[0],
+                                        this.groupedCards[i].cards[1],
                                     ];
                                 }
                             }

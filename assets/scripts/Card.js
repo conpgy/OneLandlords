@@ -119,6 +119,7 @@ cc.Class({
     },
 
     click () {
+        if (!this.game.isGameStart) return;
         this.isSelected ? this.unselect() : this.select();
     },
 

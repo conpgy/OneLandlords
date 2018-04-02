@@ -32,7 +32,7 @@ PokeUtil.analysisCards = function(cards) {
 PokeUtil.analysisCardInfos = function(cardInfos) {
     var numbers = [];
     for (const key in cardInfos) {
-        if (cards.hasOwnProperty(key)) {
+        if (cardInfos.hasOwnProperty(key)) {
             const cardInfo = cardInfos[key];
             numbers.push(cardInfo.number);
         }
@@ -83,7 +83,7 @@ PokeUtil.analysisCardNumbers = function(numbers) {
         }
 
         // 火箭
-        if (length == 2 && number[0] == CardInfo.CardNumber.littleJoker && numbers[1] == CardInfo.CardNumber.bigJoker) {
+        if (length == 2 && numbers[0] == CardInfo.CardNumber.littleJoker && numbers[1] == CardInfo.CardNumber.bigJoker) {
             cardTypeInfo.value = 120;
             cardTypeInfo.type = CardTypeInfo.CardType.rocket;
             return cardTypeInfo;
@@ -143,14 +143,14 @@ PokeUtil.analysisCardNumbers = function(numbers) {
                 if (index + 2 < length && numbers[index+1] == numbers[index+2]) {
                     if (index + 3 < length && numbers[index+2] == numbers[index+3]) {
                         bombArray.push(numbers[index]);
-                        i += 4;
+                        index += 4;
                     } else {
                         tripletArray.push(numbers[index]);
-                        i += 3;
+                        index += 3;
                     }
                 } else {
                     pairArray.push(numbers[index]);
-                    i += 2;
+                    index += 2;
                 }
             } else {
                 singleArray.push(numbers[index]);

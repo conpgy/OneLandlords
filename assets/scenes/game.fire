@@ -2293,6 +2293,8 @@
     "player2": null,
     "player3": null,
     "deckCards": [],
-    "selectedCards": []
+    "selectedCards": [],
+    "isGameStart": false,
+    "isWin": false
   }
 ]

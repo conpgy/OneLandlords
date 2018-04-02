@@ -10,6 +10,7 @@
 
 var GLOBAL = require("global");
 var CardInfo = require("CardInfo");
+var CardTypeInfo = require("CardTypeInfo");
 var Card = require("Card");
 var PokeUtil = require("PokeUtil");
 
@@ -78,6 +79,9 @@ cc.Class({
             default: [],
             type: [cc.Component]
         },
+
+        isGameStart: false,
+        isWin: false,
     },
 
     ctor: function() {
@@ -88,7 +92,6 @@ cc.Class({
 
     onLoad () {
         // this.bgAudioID = cc.audioEngine.playEffect(this.bgAudio, true);
-        this.discardButton.getComponent(cc.Button).interactable = false;
 
         this.initDeckCards();
         this.loadPlayerInfo();
@@ -113,35 +116,73 @@ cc.Class({
 
     qiangDiZhuEvent() {
         this.gameStart();
+        this.player1.isDiZhu = true;
+        this.goPlayer(this.player1);
     },
 
     buqiangEvent() {
         this.gameStart();
+        var randomIndex = Math.floor(Math.random() * 100) % 2;
+        if (randomIndex == 0) {
+            this.player2.isDiZhu = true;
+            this.goPlayer(this.player2);
+        } else {
+            this.player3.isDiZhu = true;
+            this.goPlayer(this.player3);
+        }
     },
 
     discardEvent() {
-        if (this.selectedCards.length == 0) return;
+         
         if (!this.checkSelectedCards()) {
+            cc.log("所选的牌不符合出牌规则");
             return;
         }
 
-        this.player1.removeCards(this.selectedCards);
+        var selectCardTypeInfo = PokeUtil.analysisCards(this.selectedCards);
+        var isFollow = true;
+
+        var lastOutCards = this.player3.getOutCards();
+        var lastCardTypeInfo = PokeUtil.analysisCardInfos(lastOutCards);
+        if (lastOutCards.length == 0) {
+            lastOutCards = this.player2.getOutCards();
+            lastCardTypeInfo = PokeUtil.analysisCardInfos(lastOutCards);
+            if (lastOutCards.length == 0) {
+                isFollow = false;
+            }
+        }
+
+        if (isFollow && selectCardTypeInfo.value <= lastCardTypeInfo.value) {
+            // 要不起啊
+            cc.log("所选的牌不符合出牌规则");
+            return;
+        }
+
+        this.player1.playerDiscard(isFollow, lastCardTypeInfo, this.selectedCards);
         this.selectedCards = [];
-        this.discardButton.getComponent(cc.Button).interactable = false;
+        this.goPlayer(this.player2);
     },
 
     buchuEvent() {
-
+        for (const key in this.selectedCards) {
+            if (this.selectedCards.hasOwnProperty(key)) {
+                const card = this.selectedCards[key];
+                card.unselect();
+            }
+        }
+        this.selectedCards = [];
+        this.player1.clearOutCards();
+        this.goPlayer(this.player2);
     },
 
     tipsEvent() {
         // 获取上家出的牌型
-        var player3OutCards = this.player3.outCards;
+        var player3OutCards = this.player3.getOutCards();
         var player3CardTypeInfo = PokeUtil.analysisCardInfos(player3OutCards);
 
         if (player3OutCards.length == 0) {
             // 上家没有出牌。获取上上家出的牌
-            var player2OutCards = this.player2.outCards;
+            var player2OutCards = this.player2.getOutCards();
             var player2CardTypeInfo = PokeUtil.analysisCardInfos(player2OutCards);
 
             if (player2OutCards.length == 0) {
@@ -224,7 +265,7 @@ cc.Class({
     initPlayers() {
         this.player1 = this.buildPlayerComponent();
         this.player1.ID = 1;
-        this.player1.title = "Player1";
+        this.player1.title = GLOBAL.playerInfo1.name;
         this.player1.nameLabel.string = GLOBAL.playerInfo1.name;
         this.player1.scoreLabel.string = GLOBAL.playerInfo1.score;
         this.player1.isSelf = true;
@@ -233,7 +274,7 @@ cc.Class({
 
         this.player2 = this.buildPlayerComponent();
         this.player2.ID = 2;
-        this.player2.title = "Player2";
+        this.player2.title = GLOBAL.playerInfo2.name;
         this.player2.nameLabel.string = GLOBAL.playerInfo2.name;
         this.player2.scoreLabel.string = GLOBAL.playerInfo2.score;
         this.player2.isSelf = false;
@@ -242,7 +283,7 @@ cc.Class({
 
         this.player3 = this.buildPlayerComponent();
         this.player3.ID = 3;
-        this.player3.title = "Player3";
+        this.player3.title = GLOBAL.playerInfo3.name;
         this.player3.nameLabel.string = GLOBAL.playerInfo3.name;
         this.player3.scoreLabel.string = GLOBAL.playerInfo3.score;
         this.player3.isSelf = false;
@@ -252,6 +293,7 @@ cc.Class({
 
     buildPlayerComponent() {
         var playerNode = cc.instantiate(this.playerPrefab);
+        playerNode.getComponent("Player").game = this;
         return playerNode.getComponent("Player");
     },
 
@@ -292,16 +334,17 @@ cc.Class({
     },
 
     gameStart() {
+        this.isGameStart = true;
         this.qiangDizhuLayout.active = false;
-        this.discardLayout.active = true;
+        // this.discardLayout.active = true;
     },
 
     
     appendSelectCard(card) {
         this.selectedCards.push(card);
-        if (this.selectedCards.length > 0) {
-            this.discardButton.getComponent(cc.Button).interactable = true;
-        }
+        // if (this.selectedCards.length > 0) {
+        //     this.enableDiscardButton();
+        // }
     },
 
     removeSelectCard(card) {
@@ -309,13 +352,110 @@ cc.Class({
         if (index != -1) {
             this.selectedCards.splice(index, 1);
         }
-        if (this.selectedCards.length == 0) {
-            this.discardButton.getComponent(cc.Button).interactable = false;
-        }
+        // if (this.selectedCards.length == 0) {
+        //     this.disableDiscardButton();
+        // }
     },
 
     checkSelectedCards() {
+        if (this.selectedCards.length == 0) {
+            return false;
+        }
+
+        var cardTypeInfo = PokeUtil.analysisCards(this.selectedCards);
+        if (cardTypeInfo.type == CardTypeInfo.CardType.error) {
+            return false;
+        }
+
         return true;
-    }
+    },
+
+    disableDiscardButton () {
+        this.discardButton.getComponent(cc.Button).interactable = false;
+    },
+    enableDiscardButton() {
+        this.discardButton.getComponent(cc.Button).interactable = true;
+    },
+
+    /** 轮到指定玩家出牌了 */
+    goPlayer(player) {
+        player.clearOutZone();
+        if (player == this.player1) {
+            this.discardLayout.active = true;
+        } else {
+            this.discardLayout.active = false;
+
+            var curPlayer = null;
+            var lastPlayer = null;
+            var lastLastPlayer = null;
+            var isFollow = true;
+            
+            if (player == this.player2) {
+                curPlayer = this.player2;
+                lastPlayer = this.player1;
+                lastLastPlayer = this.player3;
+            } else {
+                curPlayer = this.player3;
+                lastPlayer = this.player2;
+                lastLastPlayer = this.player1;
+            }
+
+            var lastOutCards = lastPlayer.getOutCards();
+            var lastCardTypeInfo = PokeUtil.analysisCardInfos(lastOutCards);
+            if (lastOutCards.length == 0) {
+                lastOutCards = lastLastPlayer.getOutCards();
+                lastCardTypeInfo = PokeUtil.analysisCardInfos(lastOutCards);
+                if (lastOutCards.length == 0) {
+                    isFollow = false;
+                }
+            }
+
+            var self = this;
+            setTimeout(function() {
+                curPlayer.robbotDiscard(isFollow, lastCardTypeInfo);
+                self.goPlayer(lastLastPlayer);
+           }, 1000);
+        }
+    },
+
+    gameOver(player) {
+        cc.log(player.title + "赢了！！！！");
+        this.isGameStart = false;
+
+        this.isWin = (player.ID == 1);
+
+        // 计算分数
+        var baseScore = 100;
+        var landloardDelta = 0;
+        var farmerDelta = 0;
+
+        if (player.isDiZhu) {
+            landloardDelta = baseScore * 2;
+            farmerDelta = -baseScore;
+        } else {
+            landloardDelta = - (baseScore * 2);
+            farmerDelta = baseScore;
+        }
+
+        GLOBAL.playerInfo1.score += (this.player1.isDiZhu ? landloardDelta : farmerDelta);
+        GLOBAL.playerInfo2.score += (this.player2.isDiZhu ? landloardDelta : farmerDelta);
+        GLOBAL.playerInfo3.score += (this.player3.isDiZhu ? landloardDelta : farmerDelta);
+        this.player1.scoreLabel.string = GLOBAL.playerInfo1.score;
+        this.player2.scoreLabel.string = GLOBAL.playerInfo2.score;
+        this.player3.scoreLabel.string = GLOBAL.playerInfo3.score;
+
+        var self = this;
+        setTimeout(() => {
+            self.settleAccount();
+        }, 1000);
+    },
+
+    /** 结算 */
+    settleAccount() {
+        this.qiangDizhuLayout.active = false;
+        this.discardLayout.active = false;
+
+        
+    },
 
 });
